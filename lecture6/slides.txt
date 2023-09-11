@@ -1,0 +1,294 @@
+// Libraries coming from sensor tag
+#include <xdc/runtime/System.h>
+#include <ti/sysbios/BIOS.h>
+#include <ti/sysbios/knl/Task.h>
+#include <ti/drivers/I2C.h>
+#include <ti/drivers/PIN.h>
+
+int main(void) {
+
+   // Hox! Declaration of variables omitted.
+
+   Board_initGeneral(); // Init the device
+   Board_initI2C();     // Init the I2C Buss
+
+   // I/O-configuration to enable a push button 
+   buttonHandle = PIN_open(&buttonState, buttonConfig);
+   if(!buttonHandle) {
+      System_abort("Error initializing button\n");
+   }
+
+   // Set the push button event handler (interruption)
+   if (PIN_registerIntCb(buttonHandle, &buttonFxn) != 0) {
+      System_abort("Error registering button callback function");
+   }
+   
+   // Create a task for the application, implemented in the taskFn function
+   Task_Params_init(&taskParams);
+   taskParams.stackSize = STACKSIZE;
+   taskParams.stack = &taskStack;
+   taskParams.priority=2;
+   task = Task_create((Task_FuncPtr)taskFxn, &taskParams, NULL);
+   if (task == NULL) {
+      System_abort("Task create failed!");
+   }
+
+   // Let's say through the debugger that the device initialization was successful
+   System_printf("Initialization OK!\n");
+   System_flush();
+
+   // Start the RTOS (Firmware BIOS), 
+   // which start the task execution.
+   BIOS_start();
+
+   return 0;
+}
+
+
+#include <ti/sysbios/BIOS.h>
+#include <ti/sysbios/knl/Task.h>
+
+// Tasks need own memory reservation
+#define STACKSIZE 512
+Char myTaskStack[STACKSIZE];
+
+// Task execution functon
+Void myTaskFxn(UArg arg0, UArg arg1) {
+
+   // Eternal loop
+   while (1) {
+      System_printf("Mun argumentit ovat %ld ja %ld\n", arg0, arg1);
+      System_flush();   
+
+      // Politely go to sleep for a while
+      Task_sleep(1000000L / Clock_tickPeriod); //Let's consider tick period of 10 microseconds (100khz)
+   }										   // RTOS's clock cycle is a programmatic constant
+}
+
+int main(void) {
+
+   // Data structures used in the task: settings and handlers
+   Task_Params myTaskParams;
+   Task_Handle myTaskHandle;
+	
+   // Device initialization
+   Board_initGeneral();
+
+   // Initializaton of task execution parameters
+   Task_Params_init(&myTaskParams);
+   // Assign a stack memory to the task
+   myTaskParams.stackSize = STACKSIZE;
+   myTaskParams.stack = &myTaskStack; 
+   // Provide a priority to a tag  
+   myTaskParams.priority = 2;
+   // Arguments for teh tasks (only as an example)
+   myParams.arg0 = 127; // Argumentti 1
+   myParams.arg1 = 0xFFFF; // Argumentti 2
+
+   // Creating a task
+   myTaskHandle = Task_create((Task_FuncPtr)myTaskFxn, &myTaskParams, NULL);
+   if (myTaskHandle == NULL) {	
+      System_abort("Task create failed");
+   }
+
+    // Greetings to the control
+    System_printf("Hello world!\n");
+    System_flush();
+
+   // Start the program.
+   BIOS_start();
+
+   return (0);
+}
+
+uint32_t patterin_jannite = HWREG(AON_BATMON_BASE + AON_BATMON_O_BAT); 
+
+
+#define IOID_18                 0x00000012  // IO Id 18
+#define IOID_19                 0x00000013  // IO Id 19
+#define IOID_20                 0x00000014  // IO Id 20
+
+
+#include <ti/drivers/PIN.h>
+#include <ti/drivers/pin/PINCC26XX.h> //SPECIFIC FOR THE CC2650 SENSOR TAG 
+...
+// RTO's global variables for using pins
+static PIN_Handle buttonHandle;
+static PIN_State buttonState;
+static PIN_Handle ledHandle;
+static PIN_State ledState;
+
+// Pins definitions, for each Pin their own configuration
+// Standard Board Button 0 is one of the two push buttons in Sensor tag
+PIN_Config buttonConfig[] = {
+   Board_BUTTON0  | PIN_INPUT_EN | PIN_PULLUP | PIN_IRQ_NEGEDGE, 
+   PIN_TERMINATE // Configuration mask is always finished with PIN_TERMINATE
+};
+
+// Standard Board_LED0 Corresponds to a LED
+{{{
+PIN_Config ledConfig[] = {
+   Board_LED0 | PIN_GPIO_OUTPUT_EN | PIN_GPIO_LOW | PIN_PUSHPULL | PIN_DRVSTR_MAX, 
+   PIN_TERMINATE // Configuration mask is always finished with PIN_TERMINATE
+};
+
+// Handling function for pressing the button
+void buttonFxn(PIN_Handle handle, PIN_Id pinId) {
+
+   // Change the status of LED-Pin by negation
+   uint_t pinValue = PIN_getOutputValue( Board_LED0 );
+   pinValue = !pinValue;
+   PIN_setOutputValue( ledHandle, Board_LED0, pinValue );
+}
+
+int main(void) {
+    
+   Board_initGeneral();
+
+   // Program takes pin in use
+   buttonHandle = PIN_open(&buttonState, buttonConfig);
+   if(!buttonHandle) {
+      System_abort("Error initializing button pins\n");
+   }
+   ledHandle = PIN_open(&ledState, ledConfig);
+   if(!ledHandle) {
+      System_abort("Error initializing LED pins\n");
+   }
+
+   // Attach the interruption handle function to the pin
+   if (PIN_registerIntCb(buttonHandle, &buttonFxn) != 0) {
+      System_abort("Error registering button callback function");
+   }
+
+   BIOS_start();
+
+   return (0);
+}
+
+#include <string.h>
+#include <ti/drivers/UART.h>
+...
+
+// Task functions
+Void serialTask(UArg arg0, UArg arg1) {
+
+   char input;
+   char echo_msg[30];
+
+   // UART-library settings
+   UART_Handle uart;
+   UART_Params uartParams;
+
+   // Init communnication settings
+   UART_Params_init(&uartParams);
+   uartParams.writeDataMode = UART_DATA_TEXT;
+   uartParams.readDataMode = UART_DATA_TEXT;
+   uartParams.readEcho = UART_ECHO_OFF;
+   uartParams.readMode=UART_MODE_BLOCKING;
+   uartParams.baudRate = 9600; // nopeus 9600baud
+   uartParams.dataLength = UART_LEN_8; // 8
+   uartParams.parityType = UART_PAR_NONE; // n
+   uartParams.stopBits = UART_STOP_ONE; // 1
+   
+   // Open the connection to the device serial port using Board_UART0
+   uart = UART_open(Board_UART0, &uartParams);
+   if (uart == NULL) {
+      System_abort("Error opening the UART");
+   }
+
+   // Eternal loop
+   while (1) {
+
+      // Receiving one character at a time in the input variable
+      UART_read(uart, &input, 1);
+      
+      // Send the string back
+      sprintf(echo_msg,"Received: %c\n",input);
+      UART_write(uart, echo_msg, strlen(echo_msg));
+      
+      // Go to sleep politely for a second.
+      Task_sleep(1000000L / Clock_tickPeriod);      
+   }
+}
+
+int main(void) {
+   ...
+   
+   // Let's take the UART into use. 
+   Board_initGeneral();
+   Board_initUART();
+   ...
+   
+   return 0;
+}
+
+
+// 1. i2c library included in the program
+#include <ti/drivers/I2C.h>
+
+// Function task
+Void sensorTask(UArg arg0, UArg arg1) {
+   uint8_t i;
+   float temperature;
+
+   // RTOS: i2c variables definition.
+   I2C_Handle      i2c;
+   I2C_Params      i2cParams;
+   // Variable for 12c message structure
+   I2C_Transaction i2cMessage;
+
+   // Initializing i2C bus
+   I2C_Params_init(&i2cParams);
+   i2cParams.bitRate = I2C_400kHz;
+   
+   // Opening the connection
+   i2c = I2C_open(Board_I2C_TMP, &i2cParams);
+   if (i2c == NULL) {
+      System_abort("Error Initializing I2C\n");
+   }
+
+   // i2c messages: transmision and reception buffers. 
+   uint8_t txBuffer[1]; // We send only 1 Bytes
+   uint8_t rxBuffer[2]; // We receive 2 bytes
+   
+   // Creating the i2c message
+   i2cMessage.slaveAddress = Board_TMP007_ADDR;
+   txBuffer[0] = TMP007_REG_TEMP;      // Address of the register to which we want to access. Rekisterin osoite lähetyspuskuriin
+   i2cMessage.writeBuf = txBuffer; //  Setting the sending buffer 
+   i2cMessage.writeCount = 1;      // Sending 1 byte
+   i2cMessage.readBuf = rxBuffer;  // Setting the received buffer
+   i2cMessage.readCount = 2;       // Receiving 2 bytes
+
+   while (1) {
+	
+      // I2C transfer function. 
+      if (I2C_transfer(i2c, &i2cMessage)) {
+
+         // Converting the two bytes of datain the rxBuffer
+         // to a temperature (Try to get it yourself!!)
+         temperature = ...;
+
+         // Information about the temparture value sent to the console.
+         sprintf(merkkijono,"...",temperature);
+         System_printf(merkkijono);
+         System_flush();
+      }
+      else {
+         System_printf("I2C Bus fault\n");
+         System_flush();         
+      }
+
+      // Go to sleep
+      Task_sleep(1000000 / Clock_tickPeriod);
+   }
+
+   // Closing the connection. Eternal loop never ends up here. 
+   I2C_close(i2c);	
+}
+
+int main(void) {
+   ...
+   // Include i2c bus in the program. 
+   Board_initI2C();
+   ...
+}
