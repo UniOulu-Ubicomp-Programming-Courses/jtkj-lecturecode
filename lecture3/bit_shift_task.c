@@ -4,7 +4,7 @@
 // Define the LCD register and bit masks
 const uint16_t RESET_BIT_MASK = 0x01;       // 0b0000000000000001
 const uint16_t RW_BIT_MASK    = 1 << 1;     // 0b0000000000000010
-const uint16_t ENABLE_BIT_MASK= 1 << 2;     // 0b0000000000011100
+const uint16_t ENABLE_BIT_MASK= 1 << 2;     // 0b0000000000000100
 const uint16_t DATA_MASK      = 0x07F8;     // 0b0000011111111000
 
 // Simulated LCD register
