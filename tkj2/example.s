@@ -1,31 +1,36 @@
-# Program starts at memorey position  0 
+# Implement the function sum (long * array, long count)
+#   Sum the first count elements of the array. Value is stored 
+#   in %rax
+
+
+# Program starts at memory position  0 
 .pos 0
-# Alustukset
+# Initialization
     irmovq stack, %rbp   # Stack initialization
     irmovq stack, %rsp   # Stack counter
-# Pääohjelma    
+# Main program    
 main:   
-    irmovq array,%rdi   # Subroutine arguments
-    irmovq $4,%rsi      # 
-    call sum            # Call the subroutine sum(array, 4)
+    irmovq array,%rdi   # Subroutine argument &array
+    irmovq $4,%rsi      # Subroutine argument count
+    call sum            # Call the subroutine sum(&array, 4)
     halt                # End main programm
 
 # Subroutine sum(long *array, long count)
 # start in %rdi
 # count in %rsi
 sum:    
-    irmovq $8,%r8        # Constant 8
-    irmovq $1,%r9        # Constant 1
-    xorq %rax,%rax       # sum = 0. Check that %rax is 0
-    andq %rsi,%rsi       # 
-    jmp     test         # Hypätään test-lohkoon
-loop:   
+    irmovq $8,%r8        # Constant 8. Define the increase for memory.
+    irmovq $1,%r9        # Constant 1. Used to decrease the counter
+    xorq %rax,%rax       # Put 0 in %rax
+    andq %rsi,%rsi       # Check if %rsi is 0
+    je sum_end               # If %rsi is 0 return
+sum_loop:   
     mrmovq (%rdi),%r10   # Array starts (*array)
     addq %r10,%rax       # Add element to the sum
     addq %r8,%rdi        # The address for the next element (array=..)
     subq %r9,%rsi        # Array lenght (count--)
-test:   
-    jne    loop          # The loop return to the begining of if count != 0
+    jne sum_loop
+sum_end:   
     ret                  # Back to the main program.
 
 # Stack position in memory 
@@ -35,8 +40,12 @@ stack:
 # Array: 4 elements
 .pos 0x300
 .align 8
-array:  
-    .quad 0x000d000d000d
-    .quad 0x00c000c000c0
-    .quad 0x0b000b000b00
-    .quad 0xa000a000a000
+array:
+    .quad 0x00000000000001
+    .quad 0x00000000000002
+    .quad 0x00000000000003
+    .quad 0x00000000000004
+#    .quad 0x00000d000d000d
+#    .quad 0x0000c000c000c0
+#    .quad 0x000b000b000b00
+#    .quad 0x00a000a000a000

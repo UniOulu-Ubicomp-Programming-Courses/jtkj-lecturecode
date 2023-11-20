@@ -3,5 +3,5 @@
     irmovq $1,%r8      # Vakio 1 
 loop:
     subq %r8,%rax      # %rax = %rax - 1
-    jg loop            # hyppy takaisin, jos %rax > 0 (ZF=0)
+    jne loop            # hyppy takaisin, jos %rax > 0 (ZF=0)
     halt 

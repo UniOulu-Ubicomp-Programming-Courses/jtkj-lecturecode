@@ -5,5 +5,5 @@
 
    irmovq $7, %rbx     # 2. operandi luku 7
    subq   %rbx,%rax    # %rax = %rax - %rbx = 7 - 7 = 0
-                       # Nyt ZF-lippu asettui
+                       # Now Z flag is set
    halt    
